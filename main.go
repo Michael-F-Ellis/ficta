@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/franciscoescher/goopenai"
@@ -66,6 +67,7 @@ func main() {
 						continue
 					}
 					log.Printf("response received: %0.3f elapsed", time.Since(start).Seconds())
+					fmt.Println(response)
 					unquoted, err := strconv.Unquote(response)
 					if err != nil {
 						log.Println(err)
@@ -74,7 +76,7 @@ func main() {
 							log.Println(err)
 						}
 					}
-
+					unquoted = strings.ReplaceAll(unquoted, `\"`, `"`)
 					// append the response to the file
 					file, err := os.OpenFile(event.Name, os.O_APPEND|os.O_WRONLY, 0644)
 					if err != nil {
