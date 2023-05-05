@@ -27,7 +27,7 @@ func main() {
 		log.Println("No files could be opened")
 		return
 	}
-	apiKey := os.Getenv("OPENAI_API_TOKEN")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		log.Println("Please set the OPENAI_API_TOKEN environment variable")
 		return
@@ -67,24 +67,14 @@ func main() {
 						continue
 					}
 					log.Printf("response received: %0.3f elapsed", time.Since(start).Seconds())
-					fmt.Println(response)
-					unquoted, err := strconv.Unquote(response)
-					if err != nil {
-						log.Println(err)
-						unquoted, err = strconv.Unquote(fmt.Sprintf("`%s`", response))
-						if err != nil {
-							log.Println(err)
-						}
-					}
-					unquoted = strings.ReplaceAll(unquoted, `\"`, `"`)
 					// append the response to the file
-					file, err := os.OpenFile(event.Name, os.O_APPEND|os.O_WRONLY, 0644)
+					file, err := os.OpenFile(event.Name, os.O_WRONLY, 0644)
 					if err != nil {
 						log.Println(err)
 						continue
 					}
 
-					_, err = file.WriteString(unquoted)
+					_, err = file.WriteString(response)
 					if err != nil {
 						log.Println(err)
 						file.Close()
@@ -177,27 +167,33 @@ func complete(filename string, apiKey string) (response string, err error) {
 		log.Println("Error:", err)
 		return
 	}
-
+	textstr, aiLine := findLastAILine(string(text))
+	model, max_tokens, temperature, err := parseAILine(aiLine)
+	if err != nil {
+		log.Printf("Using default model parameters: Error: %v", err)
+	}
 	// Escape special characters in text
-	escapedText, err := json.Marshal(string(text))
+	escapedText, err := json.Marshal(textstr)
 	if err != nil {
 		log.Println("Error:", err)
 		return
 	}
 	r := goopenai.CreateCompletionsRequest{
-		Model: "gpt-3.5-turbo",
 		Messages: []goopenai.Message{
 			{
 				Role:    "user",
 				Content: string(escapedText),
 			},
 		},
-		Temperature: 0.7,
+		Model:       model,
+		Temperature: temperature,
+		MaxTokens:   max_tokens,
 	}
+
 	ctx := context.Background()
 	completions, err := client.CreateCompletions(ctx, r)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	/* Response should be like this
@@ -223,9 +219,83 @@ func complete(filename string, apiKey string) (response string, err error) {
 	  ]
 	}
 	*/
+	// Log the response token counts
 	pt := completions.Usage.PromptTokens
 	ct := completions.Usage.CompletionTokens
 	tt := completions.Usage.TotalTokens
 	log.Printf("tokens: prompt=%d, completion=%d, total=%d\n", pt, ct, tt)
-	return completions.Choices[len(completions.Choices)-1].Message.Content, err
+	// Create and append model, token limit and temperature as the final line of the response.
+	mdl := r.Model
+	maxt := r.MaxTokens
+	temp := r.Temperature
+	ai := fmt.Sprintf("\n\nAI: %s, %d, %0.3f", mdl, maxt, temp)
+	return textstr + "\n\n" +
+		completions.Choices[len(completions.Choices)-1].Message.Content + ai, err
+}
+
+// findLastAILine returns the AI: line that contains the model, max tokens and
+// temperature values to be used for completion.
+func findLastAILine(text string) (string, string) {
+	lines := strings.Split(text, "\n")
+
+	var aiLine string
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(line, "AI:") {
+			aiLine = line
+			break
+		}
+	}
+
+	if aiLine != "" {
+		index := strings.LastIndex(text, aiLine)
+		part1 := text[:index]
+		return part1, aiLine
+	} else {
+		return text, ""
+	}
+}
+func parseAILine(line string) (string, int, float64, error) {
+	defaults := func(err error) (string, int, float64, error) {
+		return "gpt-3.5-turbo", 400, 0.7, err
+	}
+	// Split line into fields
+	fields := strings.Split(line, ",")
+	if len(fields) != 3 {
+		return defaults(fmt.Errorf("Invalid number of fields in line: %q", line))
+	}
+
+	// Parse string field
+	strField := strings.TrimSpace(fields[0])
+	if !strings.HasPrefix(strField, "AI:") {
+		return defaults(fmt.Errorf("Invalid string field in line: %q", line))
+	}
+	str := strings.TrimPrefix(strField, "AI:")
+	str = strings.TrimSpace(str)
+	if str == "" {
+		return defaults(fmt.Errorf("Empty string field in line: %q", line))
+	}
+
+	// Parse integer field
+	numField := strings.TrimSpace(fields[1])
+	num, err := strconv.Atoi(numField)
+	if err != nil {
+		return defaults(fmt.Errorf("Invalid integer field in line: %q", line))
+	}
+	if num < 0 {
+		return defaults(fmt.Errorf("Negative integer field in line: %q", line))
+	}
+
+	// Parse float field
+	fltField := strings.TrimSpace(fields[2])
+	flt, err := strconv.ParseFloat(fltField, 64)
+	if err != nil {
+		return defaults(fmt.Errorf("Invalid float field in line: %q", line))
+	}
+	if flt < 0.0 || flt > 1.0 {
+		return defaults(fmt.Errorf("Invalid float range in line: %q", line))
+	}
+
+	// Return parsed fields
+	return str, num, flt, nil
 }
