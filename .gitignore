@@ -1,0 +1,36 @@
+# Compiled binary files
+*.exe
+*.dll
+*.so
+*.dylib
+/bin
+
+# Go build cache
+pkg/
+
+# Go modules and package management
+go.sum
+go.mod
+
+# Log files
+*.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*.orig
+*~
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Text files
+*.txt
+
+# Sandbox
+sandbox/

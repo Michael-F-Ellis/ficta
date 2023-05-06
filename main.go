@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -29,7 +30,7 @@ func main() {
 	}
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		log.Println("Please set the OPENAI_API_TOKEN environment variable")
+		log.Println("Please set the OPENAI_API_KEY environment variable")
 		return
 	}
 	watcher, err := fsnotify.NewWatcher()
@@ -229,8 +230,8 @@ func complete(filename string, apiKey string) (response string, err error) {
 	maxt := r.MaxTokens
 	temp := r.Temperature
 	ai := fmt.Sprintf("\n\nAI: %s, %d, %0.3f", mdl, maxt, temp)
-	return textstr + "\n\n" +
-		completions.Choices[len(completions.Choices)-1].Message.Content + ai, err
+	content := completions.Choices[len(completions.Choices)-1].Message.Content
+	return textstr + unescape(content) + ai, err
 }
 
 // findLastAILine returns the AI: line that contains the model, max tokens and
@@ -298,4 +299,42 @@ func parseAILine(line string) (string, int, float64, error) {
 
 	// Return parsed fields
 	return str, num, flt, nil
+}
+
+// unescape unescapes a string, replacing backslash escaped characters with
+// the corresponding unescaped runes.
+func unescape(input string) string {
+	var buf bytes.Buffer
+	escaped := false
+
+	for _, r := range input {
+		if escaped {
+			switch r {
+			case 't':
+				buf.WriteRune('\t')
+			case 'n':
+				buf.WriteRune('\n')
+			case '\\':
+				buf.WriteRune('\\')
+			case '"':
+				buf.WriteRune('"')
+			default:
+				// Write the backslash and the current rune
+				buf.WriteRune('\\')
+				buf.WriteRune(r)
+			}
+			escaped = false
+		} else if r == '\\' {
+			escaped = true
+		} else {
+			buf.WriteRune(r)
+		}
+	}
+
+	if escaped {
+		// Write the trailing backslash
+		buf.WriteRune('\\')
+	}
+
+	return buf.String()
 }
