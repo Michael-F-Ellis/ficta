@@ -60,41 +60,41 @@ If you do not have an OpenAI API key, you can sign up for one on the OpenAI webs
 
 Here's a usage example starting from the default content for a file that ficta creates for you. To keep things brief, let's say you change the max tokens value at the bottom of the file to 100 and save the file. A few seconds later, the file will be updated to something similar the following:
 
-```
-Continue the story that starts below.
 
-Once upon a time there were three weasels named Willy, Worgus and Wishbone. One bright spring morning, Willy said to Worgus, "Hey, dude, whats's for breakfast?"
+*Continue the story that starts below.*
 
-Worgus scratched his head and replied, "I don't know, Willy. We're running low on food and we can't keep relying on Wishbone to catch all the rabbits."
+*Once upon a time there were three weasels named Willy, Worgus and Wishbone. One bright spring morning, Willy said to Worgus, "Hey, dude, whats's for breakfast?"*
 
-Wishbone, who had been napping in the sun, suddenly perked up at the sound of his name. "What's the problem, guys?" he asked.
+*Worgus scratched his head and replied, "I don't know, Willy. We're running low on food and we can't keep relying on Wishbone to catch all the rabbits."*
 
-"We're hungry and we need to find some food," explained Willy.
+*Wishbone, who had been napping in the sun, suddenly perked up at the sound of his name. "What's the problem, guys?" he asked.*
 
-AI: gpt-3.5-turbo, 100, 0.700
-```
+*"We're hungry and we need to find some food," explained Willy.*
+
+*AI: gpt-3.5-turbo, 100, 0.700*
+
 Assuming you're writing a children's story, you might decide you like the flow of what *gpt* generated but figure that a story about weasels eating rabbits and calling each other 'dude' isn't very marketable. So you decide to make it about rabbits and vegetables.
 
 After a few quick edits and a save, you get
 
-```
-Continue the story that starts below.
 
-Once upon a time there were three rabbits  named Willy, Worgus and Wishbone. One bright midsummer morning, Willy said to Worgus, "Hey, Worgus, whats's for breakfast?"
+*Continue the story that starts below.*
 
-Worgus scratched his head and replied, "I don't know, Willy. We're running low on food and we can't keep relying on Wishbone to grow all the vegetables."
+*Once upon a time there were three rabbits  named Willy, Worgus and Wishbone. One bright midsummer morning, Willy said to Worgus, "Hey, Worgus, whats's for breakfast?"*
 
-Wishbone, who had been napping in the sun, suddenly perked up at the sound of his name. "What's the problem, guys?" he asked.
+*Worgus scratched his head and replied, "I don't know, Willy. We're running low on food and we can't keep relying on Wishbone to grow all the vegetables."*
 
-"We're hungry and we need to find some food," explained Willy.
+*Wishbone, who had been napping in the sun, suddenly perked up at the sound of his name. "What's the problem, guys?" he asked.*
 
-Wishbone yawned and stretched. "No problem," he said. "I know where we can find some delicious carrots and lettuce. Follow me!"
+*"We're hungry and we need to find some food," explained Willy.*
 
-The three rabbits scampered through the fields and over the hills until they came to a lush garden filled with rows of vegetables. Wishbone led the way, his nose twitching with excitement as he sniffed out the freshest produce.
+*Wishbone yawned and stretched. "No problem," he said. "I know where we can find some delicious carrots and lettuce. Follow me!"*
 
-"Look at all these carrots!" exclaimed Willy, his mouth watering. "And the lettuce is so crisp and green!"
+*The three rabbits scampered through the fields and over the hills until they came to a lush garden filled with rows of vegetables. Wishbone led the way, his nose twitching with excitement as he sniffed out the freshest produce.*
 
-AI: gpt-3.5-turbo, 100, 0.700
-```
+*"Look at all these carrots!" exclaimed Willy, his mouth watering. "And the lettuce is so crisp and green!"*
+
+*AI: gpt-3.5-turbo, 100, 0.700*
+
 
 
