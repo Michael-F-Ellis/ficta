@@ -1,54 +1,41 @@
-Continue the README file that starts below.
 # ficta
 
-Usage: ficta file1 [file2 ...]
+`ficta` is a command line program that lets you use OpenAI's completion API from any text editor.
 
-ficta monitors one or more files for changes and calls the OpenAI completion
-endpoint with the text of the file. If you pass a filename that doesn't exist,
-ficta will create it and write some default content to it.
+`ficta` exists because I found it frustrating to write short stories and essays via the ChatGPT web interface. With `ficta`, the developing story becomes the prompt. `ficta` also lets you change LLM model and parameters freely in mid-stream.
 
-When you save a changed file, ficta will call the OpenAI completion endpoint
-with the original text followed by the completion response, followed by a one
-line record containing the model name, max_tokens and 'temperature' settings
-passed with the completion request.
+`ficta` attempts to adhere to the Unix/Linux philosophy that programs should do one thing well and cooperate with other programs. In the case of `ficta`, you specify some text files to watch and it monitors them for changes. When you edit and save a file, `ficta` handles sending the contents of the file to the OpenAI API endpoint and updating your file with the response.
 
-A typical model record looks like the following:
+----
 
-`AI: gpt-3.5-turbo, 400, 0.700`
+## Installation
+`ficta` is written in Go. It could easily have been written in Python. I chose Go for its superior error handling, networking, and co-routines.
 
-You may edit the model record with any valid values for model name, max tokens
-and temperature and those values will be used for the next completion request.
-See the openai.com API documentation to learn more about models, max tokens and
-temperature.
+Go is a compiled language, so you need to have the Go toolchain installed on the machine you use to compile `ficta`. The compilation produces a single executable binary you can run on any machine having the same architecture and OS.
 
-You need a valid OpenAI API key and Organization ID to use ficta.  Ficta
-expects to find them in environment variables named `OPENAI_API_KEY` and 
-`OPENAI_API_ORG`.
+To install Go, see https://go.dev/doc/install
 
+Then clone this repo and build `ficta` with
 
-ficta is a a command line program that lets you OpenAI's completion API 
-from any text editor. ## Installation
+```bash
+go build
+```
 
+Copy the `ficta` binary somewhere in your `$PATH` and you're ready to run.
 
 ## Usage
 
 To use `ficta`, simply run the command followed by the names of the files you wish to monitor:
 
 ```bash
-ficta file1.txt file2.txt
+ficta file1.txt file2.txt ... fileN.txt
 ```
 
-If a file doesn't exist, `ficta` will create it and add the following default content to it.
-```
-Continue the story that starts below.
+If you supply a filename that doesn't exist, `ficta` will create it and intialize it with some default content.
 
-Once upon a time there were three weasels named Willy, Worgus and Wishbone. One bright spring morning, Willy said to Worgus, "Hey, dude, what's for breakfast?"
-
-AI: gpt-3.5-turbo, 400, 0.700
-```
 Once you have started monitoring a file, any changes you make to it will trigger a call to the OpenAI completion endpoint. The original text of the file will be sent to the endpoint, along with any settings you have specified (such as model name, max tokens, and temperature). 
 
-The completion response will be appended to the original text, and the resulting text will be saved back to the file. A record of the model name, max tokens, and temperature settings used for the completion request will also be included in the file.
+The completion response will be appended to the original text, and the resulting text will be saved back to the file. A record of the model name, max tokens, and temperature settings used for the completion request will also be included in the file. You can edit the model record to adjust the settings to your needs on subsequent completion requests.
 
 You can edit the model record in the file to change the settings that will be used for the next completion request.
 
@@ -58,12 +45,31 @@ To use `ficta`, you will need a valid OpenAI API key and Organization ID. These 
 
 If you do not have an OpenAI API key, you can sign up for one on the OpenAI website.
 
-Here's a usage example starting from the default content for a file that ficta creates for you. To keep things brief, let's say you change the max tokens value at the bottom of the file to 100 and save the file. A few seconds later, the file will be updated to something similar the following:
+## Usage example
+When `ficta` creates a new text file for you, it initializes it with the following default content. We'll use that content to illustrate development of a fiction story. Here's the initial content.
 
-
+----
 *Continue the story that starts below.*
 
-*Once upon a time there were three weasels named Willy, Worgus and Wishbone. One bright spring morning, Willy said to Worgus, "Hey, dude, whats's for breakfast?"*
+*Once upon a time there were three weasels named Willy, Worgus and Wishbone. One bright spring morning, Willy said to Worgus, "Hey, dude, what's for breakfast?"*
+
+*AI: gpt-3.5-turbo, 400, 0.700*
+
+----
+The default content has three lines of text:
+ - A brief ***prompt*** that tells the AI we're writing a story. You can do without this sometimes if you start with enough of the story, but adding the initial prompt is more reliable. You can also add instructions to the prompt to influence the LLM's writing style. For instance, I often add something like *"Prefer dialog to narrative. Use sights, sounds, sensations, gestures, facial expressions and involuntary actions to convey emotions."*
+ - The ***text*** of the story so far. In this case, a single opening sentence.
+ - The ***"AI:"*** line that tells `ficta` which LLM model to use, the maximum number of 'tokens' to generate, and the 'temperature'.
+  
+   A `token` is a short sequence of characters. Typically, 100 tokens is about 75 words. `Temperature` is a parameter that governs the extent to which the LLM will randomly deviate from the next most likely word as it generates text. Temperature must be in the range 0.0 to 1.0. with 0 meaning little or no deviation and 1.0 meaning the AI will be more "creative"
+
+
+To keep things brief, let's say you change the max tokens value at the bottom of the file to 100 and save the file. A few seconds later, the file will be updated to something similar the following. I've formatted the input text in bold so you can see what was added. Notice that our change to the AI line was preserved in the output. This allows you to continue with the same model parameters or edit them as needed.
+
+----
+**Continue the story that starts below.**
+
+**Once upon a time there were three weasels named Willy, Worgus and Wishbone. One bright spring morning, Willy said to Worgus, "Hey, dude, whats's for breakfast?"**
 
 *Worgus scratched his head and replied, "I don't know, Willy. We're running low on food and we can't keep relying on Wishbone to catch all the rabbits."*
 
@@ -71,20 +77,21 @@ Here's a usage example starting from the default content for a file that ficta c
 
 *"We're hungry and we need to find some food," explained Willy.*
 
-*AI: gpt-3.5-turbo, 100, 0.700*
+**AI: gpt-3.5-turbo, 100, 0.700**
 
+----
 Assuming you're writing a children's story, you might decide you like the flow of what *gpt* generated but figure that a story about weasels eating rabbits and calling each other 'dude' isn't very marketable. So you decide to make it about rabbits and vegetables.
 
 After a few quick edits and a save, you get
 
+----
+**Continue the story that starts below.**
 
-*Continue the story that starts below.*
+**Once upon a time there were three `rabbits`  named Willy, Worgus and Wishbone. One bright `midsummer` morning, Willy said to Worgus, "Hey, Worgus, whats's for breakfast?"**
 
-*Once upon a time there were three rabbits  named Willy, Worgus and Wishbone. One bright midsummer morning, Willy said to Worgus, "Hey, Worgus, whats's for breakfast?"*
+**Worgus scratched his head and replied, "I don't know, Willy. We're running low on food and we can't keep relying on Wishbone to `grow all the vegetable`s."**
 
-*Worgus scratched his head and replied, "I don't know, Willy. We're running low on food and we can't keep relying on Wishbone to grow all the vegetables."*
-
-*Wishbone, who had been napping in the sun, suddenly perked up at the sound of his name. "What's the problem, guys?" he asked.*
+**Wishbone, who had been napping in the sun, suddenly perked up at the sound of his name. "What's the problem, guys?" he asked.**
 
 *"We're hungry and we need to find some food," explained Willy.*
 
@@ -96,5 +103,43 @@ After a few quick edits and a save, you get
 
 *AI: gpt-3.5-turbo, 100, 0.700*
 
+----
+So maybe at this point you want to control the direction of the story by, say, having the farmer's wife shoo the hungry rabbits away by adding a line like,
 
+**Mrs. McGreedy, the farmer's wife, came out the house running and shouting, "Get away from my garden, rabbits! Those vegetables are mine!"**
 
+Save again, and the LLM will pick up the cue, continuing the story. If you don't like the result, you can always delete the continuation and try again.
+
+----
+  *The three rabbits froze in fear as Mrs. McGreedy approached with a broom in her hand. But Wishbone, being the bravest of the group, stepped forward and spoke up.*
+
+  *"Please don't be angry, Mrs. McGreedy," he said. "We were just so hungry and we couldn't find any food anywhere else. We'll leave right away and never come back."*
+
+  *Mrs. McGreedy softened at the sight of the small, innocent rabbits and put down her broom. She sighed and said, "Alright, I understand you're hungry. But you can't just come and take my vegetables without asking. How about I give you some carrots and lettuce in exchange for some help around the farm?"*
+
+  *The rabbits looked at each other, surprised and grateful for Mrs. McGreedy's offer. "What kind of help?" asked Worgus.*
+
+*AI: gpt-3.5-turbo, 100, 0.700*
+
+----
+
+And so on until the text seems complete and ready for editing.
+
+To stop monitoring files, kill `ficta` from the terminal window where you launched it. While `ficta` is running, you may find it useful to leave the terminal window open. `ficta` logs status messages and errors to stdout as shown below:
+
+```bash
+% ./ficta weasels.txt
+2023/05/09 17:42:50 Listening for changes to ["weasels.txt"]
+2023/05/09 17:43:00 file changed: weasels.txt
+2023/05/09 17:43:06 tokens: prompt=315, completion=100, total=415
+2023/05/09 17:43:06 response received: 6.775 elapsed
+2023/05/09 17:43:38 file changed: weasels.txt
+2023/05/09 17:43:44 tokens: prompt=315, completion=100, total=415
+2023/05/09 17:43:44 response received: 5.804 elapsed
+2023/05/09 17:44:14 file changed: weasels.txt
+2023/05/09 17:44:20 tokens: prompt=423, completion=100, total=523
+2023/05/09 17:44:20 response received: 5.569 elapsed
+2023/05/09 17:45:52 file changed: weasels.txt
+2023/05/09 17:45:58 tokens: prompt=505, completion=100, total=605
+2023/05/09 17:45:58 response received: 6.401 elapsed
+```

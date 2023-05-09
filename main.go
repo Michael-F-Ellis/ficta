@@ -97,7 +97,6 @@ func main() {
 					// as keys and a bool indicating if the last file change was done
 					// when we appended a response from the API. We want to avoid having
 					// those writes cause a send to the API endpoint.
-					watchedFiles[event.Name] = true
 					if v, ok := watchedFiles[event.Name]; ok && v {
 						// clear the flag and ignore the write event
 						// because it was triggered by our writing the
