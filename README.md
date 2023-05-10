@@ -6,8 +6,6 @@
 
 `ficta` attempts to adhere to the Unix/Linux philosophy that programs should do one thing well and cooperate with other programs. In the case of `ficta`, you specify some text files to watch and it monitors them for changes. When you edit and save a file, `ficta` handles sending the contents of the file to the OpenAI API endpoint and updating your file with the response.
 
-----
-
 ## Installation
 `ficta` is written in Go. It could easily have been written in Python. I chose Go for its superior error handling, networking, and co-routines.
 
@@ -31,7 +29,7 @@ To use `ficta`, simply run the command followed by the names of the files you wi
 ficta file1.txt file2.txt ... fileN.txt
 ```
 
-If you supply a filename that doesn't exist, `ficta` will create it and intialize it with some default content.
+If you supply a filename that doesn't exist, `ficta` will create it and initialize it with some default content.
 
 Once you have started monitoring a file, any changes you make to it will trigger a call to the OpenAI completion endpoint. The original text of the file will be sent to the endpoint, along with any settings you have specified (such as model name, max tokens, and temperature). 
 
@@ -64,7 +62,7 @@ The default content has three lines of text:
    A `token` is a short sequence of characters. Typically, 100 tokens is about 75 words. `Temperature` is a parameter that governs the extent to which the LLM will randomly deviate from the next most likely word as it generates text. Temperature must be in the range 0.0 to 1.0. with 0 meaning little or no deviation and 1.0 meaning the AI will be more "creative"
 
 
-To keep things brief, let's say you change the max tokens value at the bottom of the file to 100 and save the file. A few seconds later, the file will be updated to something similar the following. I've formatted the input text in bold so you can see what was added. Notice that our change to the AI line was preserved in the output. This allows you to continue with the same model parameters or edit them as needed.
+To keep things brief, let's say you change the max tokens value at the bottom of the file to 100 and save the file. A few seconds later, the file will be updated to something similar to the following. I've formatted the input text in bold so you can see what was added. Notice that our change to the AI line was preserved in the output. This allows you to continue with the same model parameters or edit them as needed.
 
 ----
 **Continue the story that starts below.**
@@ -87,13 +85,13 @@ After a few quick edits and a save, you get
 ----
 **Continue the story that starts below.**
 
-**Once upon a time there were three `rabbits`  named Willy, Worgus and Wishbone. One bright `midsummer` morning, Willy said to Worgus, "Hey, Worgus, whats's for breakfast?"**
+**Once upon a time there were three `rabbits`  named Willy, Worgus and Wishbone. One bright `midsummer` morning, Willy said to Worgus, "Hey, `Worgus`, whats's for breakfast?"**
 
 **Worgus scratched his head and replied, "I don't know, Willy. We're running low on food and we can't keep relying on Wishbone to `grow all the vegetable`s."**
 
 **Wishbone, who had been napping in the sun, suddenly perked up at the sound of his name. "What's the problem, guys?" he asked.**
 
-*"We're hungry and we need to find some food," explained Willy.*
+**"We're hungry and we need to find some food," explained Willy.**
 
 *Wishbone yawned and stretched. "No problem," he said. "I know where we can find some delicious carrots and lettuce. Follow me!"*
 
@@ -143,3 +141,6 @@ To stop monitoring files, kill `ficta` from the terminal window where you launch
 2023/05/09 17:45:58 tokens: prompt=505, completion=100, total=605
 2023/05/09 17:45:58 response received: 6.401 elapsed
 ```
+
+## Acknowledgments
+`ficta` uses Francisco Escher's excellent [goopenai](github.com/franciscoescher/goopenai) package to interface with the OpenAI API.
