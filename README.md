@@ -19,19 +19,23 @@ Then clone this repo and build `ficta` with
 go build
 ```
 
-Copy the `ficta` binary somewhere in your `$PATH` and you're ready to run.
+Copy the `ficta` binary somewhere in your `$PATH`, and you're ready to run. But see [the API Key section](#api-key-and-organization-id) to learn about two environment variables `ficta` needs to authenticate with OpenAI.
 
 ## Usage
 
 To use `ficta`, simply run the command followed by the names of the files you wish to monitor:
 
 ```bash
-ficta file1.txt file2.txt ... fileN.txt
+ficta [options] file1.txt file2.txt ... fileN.txt
 ```
-
+Valid options are:
+```
+   -h Show this help message.
+   -b backupExtension: the extension for backup files. If -b is not specified, ficta will not create backup files when a file is updated.
+```
 If you supply a filename that doesn't exist, `ficta` will create it and initialize it with some default content.
 
-Once you have started monitoring a file, any changes you make to it will trigger a call to the OpenAI completion endpoint. The original text of the file will be sent to the endpoint, along with any settings you have specified (such as model name, max tokens, and temperature). 
+Once you have started monitoring a file, any changes you make to it will trigger a call to the OpenAI `v1/chat/completion` endpoint. The original text of the file will be sent to the endpoint, along with any settings you have specified (such as model name, max tokens, and temperature). 
 
 The completion response will be appended to the original text, and the resulting text will be saved back to the file. A record of the model name, max tokens, and temperature settings used for the completion request will also be included in the file. You can edit the model record to adjust the settings to your needs on subsequent completion requests.
 
@@ -55,9 +59,9 @@ When `ficta` creates a new text file for you, it initializes it with the followi
 
 ----
 The default content has three lines of text:
- - A brief ***prompt*** that tells the AI we're writing a story. You can do without this sometimes if you start with enough of the story, but adding the initial prompt is more reliable. You can also add instructions to the prompt to influence the LLM's writing style. For instance, I often add something like *"Prefer dialog to narrative. Use sights, sounds, sensations, gestures, facial expressions and involuntary actions to convey emotions."*
- - The ***text*** of the story so far. In this case, a single opening sentence.
- - The ***"AI:"*** line that tells `ficta` which LLM model to use, the maximum number of 'tokens' to generate, and the 'temperature'.
+ 1. A brief ***prompt*** that tells the AI we're writing a story. You can do without this sometimes if you start with enough of the story, but adding the initial prompt is more reliable. You can also add instructions to the prompt to influence the LLM's writing style. For instance, I often add something like *"Prefer dialog to narrative. Use sights, sounds, sensations, gestures, facial expressions and involuntary actions to convey emotions."*
+ 2. The ***text*** of the story so far. In this case, a single opening sentence.
+ 3. The ***"AI:"*** line that tells `ficta` which LLM model to use, the maximum number of 'tokens' to generate, and the 'temperature'.
   
    A `token` is a short sequence of characters. Typically, 100 tokens is about 75 words. `Temperature` is a parameter that governs the extent to which the LLM will randomly deviate from the next most likely word as it generates text. Temperature must be in the range 0.0 to 1.0. with 0 meaning little or no deviation and 1.0 meaning the AI will be more "creative"
 
@@ -142,5 +146,9 @@ To stop monitoring files, kill `ficta` from the terminal window where you launch
 2023/05/09 17:45:58 response received: 6.401 elapsed
 ```
 
+## Performance
+As of this writing, May 10, 2023, performance is gated by the OpenAI endpoint response time. For gpt-3.5-turbo, the response time is more or less linear with the value of max_tokens and only slightly influenced by the number of tokens in the input. With a paid API account, I'm seeing 5-7 seconds per response for max_tokens=100, 10-14 seconds for max_tokens=200, and so on. This is notably slower than the response time for a similar query on the ChatGPT web interface and has been a subject of complaint among API users in the community forum. Hopefully, OpenAI will eventually bring the API response time to parity with the web interface.
+
+In the meantime, I recommend setting max_tokens to 100. FWIW, I find that working in smaller chunks allows for easier control of the composition.
 ## Acknowledgments
 `ficta` uses Francisco Escher's excellent [goopenai](github.com/franciscoescher/goopenai) package to interface with the OpenAI API.
