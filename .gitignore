@@ -3,6 +3,7 @@
 *.dll
 *.so
 *.dylib
+ficta
 /bin
 
 # Go build cache

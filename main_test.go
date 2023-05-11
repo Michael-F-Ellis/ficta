@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -183,5 +184,171 @@ This is a test
 				t.Errorf("Expected aiLine to be non-empty")
 			}
 		})
+	}
+}
+func TestReplaceExtension(t *testing.T) {
+	// Test with filename with extension
+	inputFilename := "example.txt"
+	newExt := "html"
+	expectedOutput := "example.html"
+	output := replaceExtension(inputFilename, newExt)
+	if output != expectedOutput {
+		t.Errorf("Expected output to be %s, but got %s", expectedOutput, output)
+	}
+
+	// Test with filename without extension
+	inputFilename = "example"
+	newExt = "html"
+	expectedOutput = "example.html"
+	output = replaceExtension(inputFilename, newExt)
+	if output != expectedOutput {
+		t.Errorf("Expected output to be %s, but got %s", expectedOutput, output)
+	}
+
+	// Test with new extension with dot prefix
+	inputFilename = "example.txt"
+	newExt = ".html"
+	expectedOutput = "example.html"
+	output = replaceExtension(inputFilename, newExt)
+	if output != expectedOutput {
+		t.Errorf("Expected output to be %s, but got %s", expectedOutput, output)
+	}
+
+	// Test with empty new extension
+	inputFilename = "example.txt"
+	newExt = ""
+	expectedOutput = "example"
+	output = replaceExtension(inputFilename, newExt)
+	if output != expectedOutput {
+		t.Errorf("Expected output to be %s, but got %s", expectedOutput, output)
+	}
+}
+func TestCopyFile(t *testing.T) {
+	// create a temporary file for testing
+	srcFile, err := os.CreateTemp("", "test_src")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(srcFile.Name())
+	if _, err := srcFile.WriteString("test string"); err != nil {
+		t.Fatal(err)
+	}
+	if err := srcFile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// create a temporary file for the destination
+	destFile, err := os.CreateTemp("", "test_dest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(destFile.Name())
+
+	// run the copy function
+	err = copyFile(srcFile.Name(), destFile.Name())
+	if err != nil {
+		t.Fatalf("copyFile failed: %v", err)
+	}
+
+	// check that the contents of the destination file match the source file
+	destContents, err := os.ReadFile(destFile.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(destContents) != "test string" {
+		t.Fatalf("destination file contents do not match source file")
+	}
+}
+func TestOverwriteFile(t *testing.T) {
+	// setup test environment
+	filename := "test.txt"
+	ext := ".bak"
+	backupFilename := replaceExtension(filename, ext)
+	content := "hello world"
+	if err := os.WriteFile(filename, []byte("original"), 0644); err != nil {
+		t.Fatalf("failed to create file: %v", err)
+	}
+	defer os.Remove(filename)
+	defer os.Remove(backupFilename)
+
+	// call function
+	err := overwriteFile(filename, ext, content)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// verify file content
+	b, err := os.ReadFile(filename)
+
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
+	if string(b) != content {
+		t.Errorf("unexpected file content: got %v, want %v", string(b), content)
+	}
+
+	// verify backup file
+	b, err = os.ReadFile(backupFilename)
+	if err != nil {
+		t.Fatalf("failed to read backup file: %v", err)
+	}
+	if string(b) != "original" {
+		t.Errorf("unexpected backup file content: got %v, want %v", string(b), "original")
+	}
+}
+func TestCheckFileArgs(t *testing.T) {
+	testCases := []struct {
+		Name         string
+		Filenames    []string
+		Expected     []string
+		ExpectedErrs []error
+	}{
+		{
+			Name:         "All files exist",
+			Filenames:    []string{"file1.txt", "file2.txt", "file3.txt"},
+			Expected:     []string{"file1.txt", "file2.txt", "file3.txt"},
+			ExpectedErrs: nil,
+		},
+		{
+			Name:         "Some files do not exist",
+			Filenames:    []string{"file1.txt", "file2.txt", "file3.txt", "file4.txt"},
+			Expected:     []string{"file1.txt", "file2.txt", "file3.txt", "file4.txt"},
+			ExpectedErrs: nil,
+		},
+		{
+			Name:         "All files do not exist",
+			Filenames:    []string{"file5.txt", "file6.txt", "file7.txt"},
+			Expected:     []string{"file5.txt", "file6.txt", "file7.txt"},
+			ExpectedErrs: nil,
+		},
+	}
+
+	// create expected files
+	for _, file := range testCases[0].Filenames {
+		_, err := os.Create(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			actual, actualErrs := checkFileArgs(testCase.Filenames)
+			if len(actual) != len(testCase.Expected) {
+				t.Errorf("Expected %v, but got %v", testCase.Expected, actual)
+			}
+
+			if len(actualErrs) != len(testCase.ExpectedErrs) {
+				t.Errorf("Expected %v, but got %v", testCase.ExpectedErrs, actualErrs)
+			}
+		})
+	}
+
+	// delete expected files
+	for _, file := range testCases[0].Filenames {
+		_ = os.Remove(file)
+	}
+	for _, file := range []string{"file4.txt", "file5.txt", "file6.txt", "file7.txt"} {
+		_ = os.Remove(file)
 	}
 }

@@ -6,9 +6,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -18,16 +21,23 @@ import (
 )
 
 const USAGE = `
-Usage: ficta file1 [file2 ...]
+FICTA v1.0.0
+
+Usage: ficta [options] file1 [file2 ...]
 
 ficta monitors one or more files for changes and calls the OpenAI completion
 endpoint with the text of the file. If you pass a filename that doesn't exist,
 ficta will create it and write some default content to it.
 
-When you save a changed file, ficta will call the OpenAI completion endpoint
-with the original text followed by the completion response, followed by a one
-line record containing the model name, max_tokens and 'temperature' settings
-passed with the completion request.
+Options:
+   -h Show this help message.
+   -b backupExtension: the extension for backup files. If -b is not
+      specified, ficta will not create backup files when a file is updated.
+
+When you save a changed file, ficta will call the OpenAI completion endpoint and
+overwrites the file with the original text followed by the completion response,
+followed by a one line record containing the model name, max_tokens and
+'temperature' settings passed with the completion request.
 
 A typical model record looks like the following:
 
@@ -43,7 +53,14 @@ expects to find them in environment variables named OPENAI_API_KEY and
 OPENAI_API_ORG.`
 
 func main() {
-	files, errors := checkFileArgs()
+	backupExt := flag.String("b", "", "specify backup extension")
+	flag.Usage = func() { fmt.Println(USAGE) }
+	flag.Parse()
+	var nflagArgs int
+	if *backupExt != "" {
+		nflagArgs = 2
+	}
+	files, errors := checkFileArgs(os.Args[1+nflagArgs:])
 	if len(errors) > 0 {
 		for _, err := range errors {
 			log.Println(err)
@@ -116,18 +133,11 @@ func main() {
 					log.Printf("response received: %0.3f elapsed", time.Since(start).Seconds())
 
 					// Rewrite the file with the new content.
-					file, err := os.OpenFile(event.Name, os.O_WRONLY, 0644)
+					err = overwriteFile(event.Name, *backupExt, response)
 					if err != nil {
 						log.Println(err)
 						continue
 					}
-					_, err = file.WriteString(response)
-					if err != nil {
-						log.Println(err)
-						file.Close()
-						continue
-					}
-					file.Close()
 					// Set a flag so that our write doesn't retrigger change handler.
 					watchedFiles[event.Name] = true
 				}
@@ -152,14 +162,12 @@ func main() {
 	<-done
 }
 
-// checkFileArgs reads one or more filenames from the command line. Any
-// filenames that don't exist are created and a default string supplied as an
-// argument is appended and saved. checkFileArgs attempts to open the files and
-// returns a slice of *os.File containing all the files it was able to open and
-// a slice of errors for each file it wasn't able to open.
-func checkFileArgs() ([]string, []error) {
-	var filenames []string
-	filenames = append(filenames, os.Args[1:]...)
+// checkFileArgs receives a slice of filenames.  Any filenames that don't exist
+// are created and a default string supplied as an argument is appended and
+// saved. checkFileArgs attempts to open the files and returns a slice of of
+// strings containing all the files it was able to open and a slice of errors
+// for each file it wasn't able to open.
+func checkFileArgs(filenames []string) ([]string, []error) {
 	var goodfiles []string
 	var errors []error
 	for _, filename := range filenames {
@@ -418,4 +426,75 @@ Once upon a time there were three weasels named Willy, Worgus and Wishbone. One 
 AI: gpt-3.5-turbo, 400, 0.700`
 	_, err := file.WriteString(defaultContent)
 	return err
+}
+
+// overwriteFile rewrites a file with new content. If backExt is not "", it
+// creates a backup of the original file with the given extension.
+func overwriteFile(filename, bakExt, content string) error {
+	// create backup file
+	if bakExt != "" {
+		backupFilename := replaceExtension(filename, bakExt)
+		if err := copyFile(filename, backupFilename); err != nil {
+			return err
+		}
+	}
+
+	// overwrite original file with content
+	tempFile, err := os.CreateTemp("", filename)
+	if err != nil {
+		return err
+	}
+	defer tempFile.Close()
+	if err := os.WriteFile(tempFile.Name(), []byte(content), 0644); err != nil {
+		return err
+	}
+	if err := os.Rename(tempFile.Name(), filename); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func copyFile(src string, dest string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	destFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// replaceExtension takes in a filename and a new extension as input parameters
+// and returns the filename with the updated extension. If the newExt parameter
+// is "", it returns the filename.
+func replaceExtension(filename, newExt string) string {
+	// Check if filename includes extension
+	ext := filepath.Ext(filename)
+	if ext == "" {
+		// If no extension, simply append the new extension
+		if newExt == "" {
+			// Don't add a "."
+			return filename
+		} else {
+			return filename + "." + newExt
+		}
+	}
+	// Remove the existing extension and replace with new extension
+	fname := strings.TrimSuffix(filename, ext)
+	if newExt == "" {
+		return fname
+	} else {
+		return fname + "." + strings.TrimPrefix(newExt, ".")
+	}
 }
