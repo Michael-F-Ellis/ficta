@@ -21,7 +21,7 @@ import (
 )
 
 const USAGE = `
-FICTA v1.0.0
+FICTA v1.0.1
 
 Usage: ficta [options] file1 [file2 ...]
 
