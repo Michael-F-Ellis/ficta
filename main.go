@@ -430,7 +430,7 @@ AI: gpt-3.5-turbo, 400, 0.700`
 
 // overwriteFile rewrites a file with new content. If backExt is not "", it
 // creates a backup of the original file with the given extension.
-func overwriteFile(filename, bakExt, content string) error {
+func overwriteFile(filename, bakExt, newContent string) error {
 	// create backup file
 	if bakExt != "" {
 		backupFilename := replaceExtension(filename, bakExt)
@@ -438,20 +438,10 @@ func overwriteFile(filename, bakExt, content string) error {
 			return err
 		}
 	}
-
 	// overwrite original file with content
-	tempFile, err := os.CreateTemp("", filename)
-	if err != nil {
+	if err := os.WriteFile(filename, []byte(newContent), 0644); err != nil {
 		return err
 	}
-	defer tempFile.Close()
-	if err := os.WriteFile(tempFile.Name(), []byte(content), 0644); err != nil {
-		return err
-	}
-	if err := os.Rename(tempFile.Name(), filename); err != nil {
-		return err
-	}
-
 	return nil
 }
 
