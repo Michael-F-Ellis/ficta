@@ -20,6 +20,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// TODO #5
+// TODO Add @OUT, @/OUT delimiters
 const USAGE = `
 FICTA v1.0.1
 
@@ -31,8 +33,10 @@ ficta will create it and write some default content to it.
 
 Options:
    -h Show this help message.
-   -b backupExtension: the extension for backup files. If -b is not
-      specified, ficta will not create backup files when a file is updated.
+   -b backupExtension: the extension for backup files. If -b is not specified,
+   ficta will not create backup files when a file is updated.
+   -c commentPrefix: the prefix string for comment lines. Default is '@'.
+   Comment lines are excluded from text sent to the OpenAI completion endpoint.
 
 When you save a changed file, ficta will call the OpenAI completion endpoint and
 overwrites the file with the original text followed by the completion response,
@@ -52,15 +56,18 @@ You need a valid OpenAI API key and Organization ID to use ficta.  Ficta
 expects to find them in environment variables named OPENAI_API_KEY and 
 OPENAI_API_ORG.`
 
+var (
+	backupExt     string
+	commentPrefix string
+)
+
 func main() {
-	backupExt := flag.String("b", "", "specify backup extension")
+	flag.StringVar(&backupExt, "b", "", "the extension for backup files")
+	flag.StringVar(&commentPrefix, "c", "@", "the prefix string for comment lines")
 	flag.Usage = func() { fmt.Println(USAGE) }
 	flag.Parse()
-	var nflagArgs int
-	if *backupExt != "" {
-		nflagArgs = 2
-	}
-	files, errors := checkFileArgs(os.Args[1+nflagArgs:])
+
+	files, errors := checkFileArgs(flag.Args())
 	if len(errors) > 0 {
 		for _, err := range errors {
 			log.Println(err)
@@ -133,7 +140,7 @@ func main() {
 					log.Printf("response received: %0.3f elapsed", time.Since(start).Seconds())
 
 					// Rewrite the file with the new content.
-					err = overwriteFile(event.Name, *backupExt, response)
+					err = overwriteFile(event.Name, backupExt, response)
 					if err != nil {
 						log.Println(err)
 						continue
@@ -230,12 +237,13 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 		return
 	}
 	textstr, aiLine := findLastAILine(string(text))
+	cleanText := processAuthorComments(textstr, commentPrefix)
 	model, max_tokens, temperature, err := parseAILine(aiLine)
 	if err != nil {
 		log.Printf("Using default model parameters: Error: %v", err)
 	}
 	// Escape special characters in text
-	escapedText, err := json.Marshal(textstr)
+	escapedText, err := json.Marshal(cleanText)
 	if err != nil {
 		log.Println("Error:", err)
 		return
@@ -487,4 +495,35 @@ func replaceExtension(filename, newExt string) string {
 	} else {
 		return fname + "." + strings.TrimPrefix(newExt, ".")
 	}
+}
+
+// processAuthorComments removes the author comments from a string.
+// Certain special comments control which lines of text are included
+// in the returned string.
+func processAuthorComments(text, prefix string) string {
+	var (
+		include    = true
+		outcomment = prefix + "OUT" // e.g. @OUT
+		incomment  = prefix + "IN"  // e.g. @IN
+	)
+	lines := strings.Split(text, "\n")
+	stripped := []string{}
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		isComment := strings.HasPrefix(trimmed, prefix)
+		if !isComment && include {
+			stripped = append(stripped, line)
+			continue
+		}
+		if strings.HasPrefix(trimmed, outcomment) {
+			include = false
+			continue
+		}
+		if strings.HasPrefix(trimmed, incomment) {
+			include = true
+			continue
+		}
+		// No action if ordinary comment.
+	}
+	return strings.Join(stripped, "\n")
 }

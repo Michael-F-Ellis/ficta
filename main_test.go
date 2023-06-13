@@ -352,3 +352,23 @@ func TestCheckFileArgs(t *testing.T) {
 		_ = os.Remove(file)
 	}
 }
+
+func TestProcessAuthorComments(t *testing.T) {
+	prefix := "#"
+	text := `
+# This is a comment
+#OUT
+Not a comment
+#IN
+# Another comment
+Still not a comment`
+
+	expected := `
+Still not a comment`
+
+	result := processAuthorComments(text, prefix)
+
+	if !strings.EqualFold(expected, result) {
+		t.Errorf("Expected '%s' but got '%s'", expected, result)
+	}
+}
