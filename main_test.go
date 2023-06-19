@@ -354,19 +354,16 @@ func TestCheckFileArgs(t *testing.T) {
 }
 
 func TestProcessAuthorComments(t *testing.T) {
-	prefix := "#"
 	text := `
-# This is a comment
-#OUT
-Not a comment
-#IN
-# Another comment
+// This is a comment
+/*Not a comment*/
+// Another comment
 Still not a comment`
 
 	expected := `
 Still not a comment`
 
-	result := processAuthorComments(text, prefix)
+	result := processAuthorComments(text, "//", "/*", "*/")
 
 	if !strings.EqualFold(expected, result) {
 		t.Errorf("Expected '%s' but got '%s'", expected, result)

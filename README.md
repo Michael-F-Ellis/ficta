@@ -32,6 +32,9 @@ Valid options are:
 ```
    -h Show this help message.
    -b backupExtension: the extension for backup files. If -b is not specified, ficta will not create backup files when a file is updated.
+   -c line comment prefix, default = //
+   -y block comment prefix, default = /*
+   -z block comment suffix, default = */
 ```
 If you supply a filename that doesn't exist, `ficta` will create it and initialize it with some default content.
 
@@ -41,6 +44,12 @@ The completion response will be appended to the original text, and the resulting
 
 You can edit the model record in the file to change the settings that will be used for the next completion request.
 
+### Author Comments
+You may want to exclude some lines of the text from the AI input, either as notes to yourself or in order to keep the input smaller than the maximum input to the AI model you are using.
+
+ `Ficta` supports line and block comments. By default, the comment delimiters are the familiar `//`, `/*`, and `*/` used in C++, Go, and similar programming languages, but you can change them with command line options when you start `ficta`.
+
+ The default delimiters have the advantage of making it easier to adapt existing syntax hightlighting rules to help you distinguish comments from input text. The `ficta` repository includes a `vscode` extension named `AIT` that detects and highlights comments. You'll need to manually copy the folder to your vscode extensions directory and use the file extension `.ait` on your input files.
 ## API Key and Organization ID
 
 To use `ficta`, you will need a valid OpenAI API key and Organization ID. These should be stored in environment variables named `OPENAI_API_KEY` and `OPENAI_API_ORG`, respectively.

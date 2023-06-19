@@ -33,10 +33,12 @@ ficta will create it and write some default content to it.
 
 Options:
    -h Show this help message.
-   -b backupExtension: the extension for backup files. If -b is not specified,
+   -b backup extension: the extension for backup files. If -b is not specified,
    ficta will not create backup files when a file is updated.
-   -c commentPrefix: the prefix string for comment lines. Default is '@'.
-   Comment lines are excluded from text sent to the OpenAI completion endpoint.
+   -c line comment prefix: the prefix string for comment lines. Default is '//'.
+   -y block comment prefix, default = '/*'
+   -z block comment suffix, default = '*/'
+   Commented lines are excluded from text sent to the OpenAI completion endpoint.
 
 When you save a changed file, ficta will call the OpenAI completion endpoint and
 overwrites the file with the original text followed by the completion response,
@@ -45,7 +47,7 @@ followed by a one line record containing the model name, max_tokens and
 
 A typical model record looks like the following:
 
-AI: gpt-3.5-turbo, 400, 0.700
+AI: gpt-3.5-turbo, 100, 0.700
 
 You may edit the model record with any valid values for model name, max tokens
 and temperature and those values will be used for the next completion request.
@@ -57,13 +59,17 @@ expects to find them in environment variables named OPENAI_API_KEY and
 OPENAI_API_ORG.`
 
 var (
-	backupExt     string
-	commentPrefix string
+	backupExt          string
+	lineCommentPrefix  string
+	blockCommentPrefix string
+	blockCommentSuffix string
 )
 
 func main() {
 	flag.StringVar(&backupExt, "b", "", "the extension for backup files")
-	flag.StringVar(&commentPrefix, "c", "@", "the prefix string for comment lines")
+	flag.StringVar(&lineCommentPrefix, "c", "//", "the prefix string for comment lines")
+	flag.StringVar(&blockCommentPrefix, "y", "/*", "the prefix string for multi-line comments")
+	flag.StringVar(&blockCommentSuffix, "z", "*/", "the suffix string for multi-line comments")
 	flag.Usage = func() { fmt.Println(USAGE) }
 	flag.Parse()
 
@@ -237,7 +243,7 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 		return
 	}
 	textstr, aiLine := findLastAILine(string(text))
-	cleanText := processAuthorComments(textstr, commentPrefix)
+	cleanText := processAuthorComments(textstr, lineCommentPrefix, blockCommentPrefix, blockCommentSuffix)
 	model, max_tokens, temperature, err := parseAILine(aiLine)
 	if err != nil {
 		log.Printf("Using default model parameters: Error: %v", err)
@@ -497,33 +503,32 @@ func replaceExtension(filename, newExt string) string {
 	}
 }
 
-// processAuthorComments removes the author comments from a string.
-// Certain special comments control which lines of text are included
-// in the returned string.
-func processAuthorComments(text, prefix string) string {
+// processAuthorComments removes the author comments from a text string.
+// The arguments lcprefix, bcprefix, and lcprefix2 are comment delimiters
+// for line and block comments.
+func processAuthorComments(text, lcprefix, bcprefix, bcsuffix string) string {
 	var (
-		include    = true
-		outcomment = prefix + "OUT" // e.g. @OUT
-		incomment  = prefix + "IN"  // e.g. @IN
+		include = true
 	)
 	lines := strings.Split(text, "\n")
-	stripped := []string{}
+	stripped := []string{} // accumulator for lines that aren't commented out
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		isComment := strings.HasPrefix(trimmed, prefix)
-		if !isComment && include {
-			stripped = append(stripped, line)
-			continue
+		if strings.HasPrefix(trimmed, lcprefix) {
+			continue // reject line comments
 		}
-		if strings.HasPrefix(trimmed, outcomment) {
-			include = false
-			continue
-		}
-		if strings.HasPrefix(trimmed, incomment) {
+		if strings.HasSuffix(trimmed, bcsuffix) {
 			include = true
 			continue
 		}
-		// No action if ordinary comment.
+		if strings.HasPrefix(trimmed, bcprefix) {
+			include = false
+			continue
+		}
+		// Line is not commented out, so add it to the accumulator
+		if include {
+			stripped = append(stripped, line)
+		}
 	}
 	return strings.Join(stripped, "\n")
 }

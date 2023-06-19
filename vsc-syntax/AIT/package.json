@@ -1,0 +1,25 @@
+{
+  "name": "AIT",
+  "displayName": "ait",
+  "description": "AI Input Text",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.79.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "ait",
+      "aliases": ["AIT", "ait"],
+      "extensions": [".ait"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "ait",
+      "scopeName": "source.ait",
+      "path": "./syntaxes/ait.tmLanguage.json"
+    }]
+  }
+}
