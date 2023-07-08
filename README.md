@@ -40,9 +40,7 @@ If you supply a filename that doesn't exist, `ficta` will create it and initiali
 
 Once you have started monitoring a file, any changes you make to it will trigger a call to the OpenAI `v1/chat/completion` endpoint. The original text of the file will be sent to the endpoint, along with any settings you have specified (such as model name, max tokens, and temperature). 
 
-The completion response will be appended to the original text, and the resulting text will be saved back to the file. A record of the model name, max tokens, and temperature settings used for the completion request will also be included in the file. You can edit the model record to adjust the settings to your needs on subsequent completion requests.
-
-You can edit the model record in the file to change the settings that will be used for the next completion request.
+The completion response will be appended to the original text, and the resulting text will be saved back to the file. A record of the model name, max tokens, temperature and number of completions settings used for the completion request will also be included in the file. You can edit the model record to adjust the settings to your needs on subsequent completion requests.
 
 ### Author Comments
 You may want to exclude some lines of the text from the AI input, either as notes to yourself or in order to keep the input smaller than the maximum input to the AI model you are using.

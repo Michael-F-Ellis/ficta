@@ -8,20 +8,31 @@ import (
 
 func TestParseAILine(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		expectedStr string
-		expectedInt int
-		expectedFlt float64
-		expectedErr string
+		name                string
+		input               string
+		expectedModel       string
+		expectedMaxTokens   int
+		expectedTemperature float64
+		expectedCompletions int
+		expectedErr         string
 	}{
 		{
-			name:        "Valid Input",
-			input:       "AI:test,42,0.42",
-			expectedStr: "test",
-			expectedInt: 42,
-			expectedFlt: 0.42,
-			expectedErr: "",
+			name:                "Valid Input, no count",
+			input:               "AI:test,42,0.42",
+			expectedModel:       "test",
+			expectedMaxTokens:   42,
+			expectedTemperature: 0.42,
+			expectedCompletions: 1,
+			expectedErr:         "",
+		},
+		{
+			name:                "Valid Input, with count",
+			input:               "AI:test,42,0.42,2",
+			expectedModel:       "test",
+			expectedMaxTokens:   42,
+			expectedTemperature: 0.42,
+			expectedCompletions: 2,
+			expectedErr:         "",
 		},
 		{
 			name:        "Invalid Prefix",
@@ -62,30 +73,33 @@ func TestParseAILine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			str, num, flt, err := parseAILine(tt.input)
+			str, num, flt, cnt, err := parseAILine(tt.input)
 
 			if tt.expectedErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.expectedErr) {
 					t.Errorf("Expected error containing '%s', got '%v'", tt.expectedErr, err)
 				}
-				if err != nil && (str != "gpt-3.5-turbo" || num != 400 || flt != 0.7) {
-					t.Errorf("Expected '%s, %d, %f', got '%v, %v, %v'", "gpt-3.5-turbo", 400, 0.7, str, num, flt)
+				if err != nil && (str != "gpt-3.5-turbo" || num != 100 || flt != 0.7 || cnt != 2) {
+					t.Errorf("Expected '%s, %d, %f, %d', got '%v, %v, %v', %v", "gpt-3.5-turbo", 400, 0.7, 2, str, num, flt, cnt)
 				}
 			} else {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
 
-				if str != tt.expectedStr {
-					t.Errorf("Expected string '%s', got '%s'", tt.expectedStr, str)
+				if str != tt.expectedModel {
+					t.Errorf("Expected string '%s', got '%s'", tt.expectedModel, str)
 				}
 
-				if num != tt.expectedInt {
-					t.Errorf("Expected integer %d, got %d", tt.expectedInt, num)
+				if num != tt.expectedMaxTokens {
+					t.Errorf("Expected integer %d, got %d", tt.expectedMaxTokens, num)
 				}
 
-				if flt != tt.expectedFlt {
-					t.Errorf("Expected float %f, got %f", tt.expectedFlt, flt)
+				if flt != tt.expectedTemperature {
+					t.Errorf("Expected float %f, got %f", tt.expectedTemperature, flt)
+				}
+				if cnt != tt.expectedCompletions {
+					t.Errorf("Expected count %d, got %d", tt.expectedCompletions, cnt)
 				}
 			}
 		})

@@ -43,16 +43,16 @@ Options:
 When you save a changed file, ficta will call the OpenAI completion endpoint and
 overwrites the file with the original text followed by the completion response,
 followed by a one line record containing the model name, max_tokens and
-'temperature' settings passed with the completion request.
+'temperature' and N (number of completions requested). 
 
 A typical model record looks like the following:
 
-AI: gpt-3.5-turbo, 100, 0.700
+AI: gpt-3.5-turbo, 100, 0.700, 1
 
-You may edit the model record with any valid values for model name, max tokens
-and temperature and those values will be used for the next completion request.
+You may edit the model record with any valid values for model name, max tokens,
+temperature, and N; those values will be used for the next completion request.
 See the openai.com API documentation to learn more about models, max tokens and
-temperature.
+temperature, and N.
 
 You need a valid OpenAI API key and Organization ID to use ficta.  Ficta
 expects to find them in environment variables named OPENAI_API_KEY and 
@@ -244,7 +244,7 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 	}
 	textstr, aiLine := findLastAILine(string(text))
 	cleanText := processAuthorComments(textstr, lineCommentPrefix, blockCommentPrefix, blockCommentSuffix)
-	model, max_tokens, temperature, err := parseAILine(aiLine)
+	model, max_tokens, temperature, cnt, err := parseAILine(aiLine)
 	if err != nil {
 		log.Printf("Using default model parameters: Error: %v", err)
 	}
@@ -264,6 +264,7 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 		Model:       model,
 		Temperature: temperature,
 		MaxTokens:   max_tokens,
+		N:           cnt,
 	}
 
 	ctx := context.Background()
@@ -271,7 +272,9 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 	if err != nil {
 		return "", err
 	}
-
+	// fmt.Printf("AI: %s, %d, %f, %d\n", model, max_tokens, temperature, cnt)
+	// fmt.Printf("Request\n%v\n", r)
+	// fmt.Printf("Completions\n%v\n", completions)
 	/* Response should be like this
 	{
 	  "id": "chatcmpl-xxx",
@@ -304,18 +307,23 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 	mdl := r.Model
 	maxt := r.MaxTokens
 	temp := r.Temperature
-	ai := fmt.Sprintf("\n\nAI: %s, %d, %0.3f", mdl, maxt, temp)
-	var content string
-	if len(completions.Choices) > 0 {
-		content = completions.Choices[len(completions.Choices)-1].Message.Content
+	cnt = r.N
+	ai := fmt.Sprintf("\n\nAI: %s, %d, %0.3f, %d", mdl, maxt, temp, cnt)
+	var responses []string
+	nChoices := len(completions.Choices)
+	if nChoices > 0 {
+		for i, s := range completions.Choices {
+			responses = append(responses, fmt.Sprintf("%s response %d of %d", lineCommentPrefix, i+1, nChoices))
+			responses = append(responses, s.Message.Content)
+		}
 	} else {
-		content = completions.Error.Message
+		responses = append(responses, completions.Error.Message)
 	}
 	// catenate the prompt, the response and the AI string. For reasons that
 	// aren't yet clear, the responses sometimes contain escape sequences for
 	// quotes, tabs and newlines. The unescape function fixes any that are
 	// found.
-	return textstr + unescape(content) + ai, err
+	return textstr + unescape(strings.Join(responses, "\n\n")) + ai, err
 }
 
 // findLastAILine returns the AI: line that contains the model, max tokens and
@@ -344,37 +352,37 @@ func findLastAILine(text string) (string, string) {
 	}
 }
 
-// parseAILine parses the AI: line and returns the model, max tokens and
-// temperature values to be used for completion. If there's an error parsing the
-// line, it returns a default AI line and an non-nil error.
-func parseAILine(line string) (string, int, float64, error) {
-	defaults := func(err error) (string, int, float64, error) {
-		return "gpt-3.5-turbo", 400, 0.7, err
+// parseAILine parses the AI: line and returns the model, max tokens,
+// temperature, and response count values to be used for completion. If there's
+// an error parsing the line, it returns a default AI line and an non-nil error.
+func parseAILine(line string) (string, int, float64, int, error) {
+	defaults := func(err error) (string, int, float64, int, error) {
+		return "gpt-3.5-turbo", 100, 0.7, 2, err
 	}
 	// Split line into fields
 	fields := strings.Split(line, ",")
-	if len(fields) != 3 {
+	if len(fields) < 3 || len(fields) > 4 {
 		return defaults(fmt.Errorf("Invalid number of fields in line: %q", line))
 	}
 
-	// Parse string field
-	strField := strings.TrimSpace(fields[0])
-	if !strings.HasPrefix(strField, "AI:") {
+	// Parse model string field
+	modelField := strings.TrimSpace(fields[0])
+	if !strings.HasPrefix(modelField, "AI:") {
 		return defaults(fmt.Errorf("Invalid string field in line: %q", line))
 	}
-	str := strings.TrimPrefix(strField, "AI:")
-	str = strings.TrimSpace(str)
-	if str == "" {
+	model := strings.TrimPrefix(modelField, "AI:")
+	model = strings.TrimSpace(model)
+	if model == "" {
 		return defaults(fmt.Errorf("Empty string field in line: %q", line))
 	}
 
-	// Parse integer field
-	numField := strings.TrimSpace(fields[1])
-	num, err := strconv.Atoi(numField)
+	// Parse max tokens integer field
+	maxToksField := strings.TrimSpace(fields[1])
+	maxToks, err := strconv.Atoi(maxToksField)
 	if err != nil {
 		return defaults(fmt.Errorf("Invalid integer field in line: %q", line))
 	}
-	if num < 0 {
+	if maxToks < 0 {
 		return defaults(fmt.Errorf("Negative integer field in line: %q", line))
 	}
 
@@ -388,8 +396,25 @@ func parseAILine(line string) (string, int, float64, error) {
 		return defaults(fmt.Errorf("Invalid float range in line: %q", line))
 	}
 
+	// Parse number of reponses integer field
+	var (
+		nResp int
+	)
+	if len(fields) != 4 {
+		nResp = 1
+	} else {
+		nRespField := strings.TrimSpace(fields[3])
+		nResp, err = strconv.Atoi(nRespField)
+		if err != nil {
+			return defaults(fmt.Errorf("Invalid integer field in line: %q", line))
+		}
+		if nResp <= 0 {
+			return defaults(fmt.Errorf("Zero or negative integer field in line: %q", line))
+		}
+	}
+
 	// Return parsed fields
-	return str, num, flt, nil
+	return model, maxToks, flt, nResp, nil
 }
 
 // unescape unescapes a string, replacing backslash escaped characters with
@@ -437,7 +462,7 @@ func writeDefaultFileContent(file *os.File) error {
 
 Once upon a time there were three weasels named Willy, Worgus and Wishbone. One bright spring morning, Willy said to Worgus, "Hey, dude, what's for breakfast?"
 
-AI: gpt-3.5-turbo, 400, 0.700`
+AI: gpt-3.5-turbo, 100, 0.700, 1`
 	_, err := file.WriteString(defaultContent)
 	return err
 }
