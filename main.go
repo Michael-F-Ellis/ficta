@@ -23,7 +23,7 @@ import (
 // TODO #5
 // TODO Add @OUT, @/OUT delimiters
 const USAGE = `
-FICTA v1.0.1
+FICTA v1.2.2
 
 Usage: ficta [options] file1 [file2 ...]
 
@@ -262,7 +262,7 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 			},
 		},
 		Model:       model,
-		Temperature: temperature,
+		Temperature: 2 * temperature, // OpenAI API temperature range is 0.0 to 2.0
 		MaxTokens:   max_tokens,
 		N:           cnt,
 	}
@@ -304,19 +304,26 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 	tt := completions.Usage.TotalTokens
 	log.Printf("tokens: prompt=%d, completion=%d, total=%d\n", pt, ct, tt)
 	// Create and append model, token limit and temperature as the final line of the response.
+	// Remember that temp needs to be scaled down by a factor of 2.
 	mdl := r.Model
 	maxt := r.MaxTokens
 	temp := r.Temperature
 	cnt = r.N
-	ai := fmt.Sprintf("\n\nAI: %s, %d, %0.3f, %d", mdl, maxt, temp, cnt)
+	ai := fmt.Sprintf("\n\nAI: %s, %d, %0.3f, %d", mdl, maxt, temp/2, cnt)
 	var responses []string
 	nChoices := len(completions.Choices)
-	if nChoices > 0 {
+	switch {
+	case nChoices == 1:
+		for _, s := range completions.Choices {
+			responses = append(responses, s.Message.Content)
+		}
+	case nChoices > 1:
 		for i, s := range completions.Choices {
+			// precede each response with a line comment of the from "response n of m"
 			responses = append(responses, fmt.Sprintf("%s response %d of %d", lineCommentPrefix, i+1, nChoices))
 			responses = append(responses, s.Message.Content)
 		}
-	} else {
+	default:
 		responses = append(responses, completions.Error.Message)
 	}
 	// catenate the prompt, the response and the AI string. For reasons that
