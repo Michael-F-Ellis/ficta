@@ -1,11 +1,7 @@
 package main
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -385,49 +381,5 @@ Still not a comment`
 
 	if !strings.EqualFold(expected, result) {
 		t.Errorf("Expected '%s' but got '%s'", expected, result)
-	}
-}
-func TestRequestURLCompletion(t *testing.T) {
-	r := URLRequest{
-		Prompt:      "Hello, world!",
-		Temperature: 0.5,
-		NPredict:    1,
-		CachePrompt: false,
-	}
-	expected := URLCompletion{
-		Content: []string{"Hello, world!"},
-		GenerationSettings: struct {
-			Temp string `json:"temp"`
-		}{Temp: "0.5"},
-	}
-
-	// Mock HTTP server
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var actual URLRequest
-		err := json.NewDecoder(r.Body).Decode(&actual)
-		if err != nil {
-			t.Fatalf("Unexpected error: %v\n%q", err, r.Body)
-		}
-		if !reflect.DeepEqual(r, expected) {
-			t.Errorf("Expected %v but got %v", expected, actual)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(expected)
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-	}))
-	defer ts.Close()
-
-	// Set URL endpoint to mock server
-	urlEndpoint = ts.URL
-
-	// Call function and check response
-	actual, err := requestURLCompletion(r)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Expected %v but got %v", expected, actual)
 	}
 }

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -231,42 +230,6 @@ func checkFileArgs(filenames []string) ([]string, []error) {
 	}
 
 	return goodfiles, errors
-}
-
-type URLRequest struct {
-	Prompt      string  `json:"prompt"`
-	Temperature float64 `json:"temperature"`
-	NPredict    int     `json:"n_predict"`
-	CachePrompt bool    `json:"cache_prompt"`
-}
-type URLCompletion struct {
-	Content            []string `json:"content"`
-	GenerationSettings struct {
-		Temp string `json:"temp"`
-	} `json:"generation_settings"`
-}
-
-func requestURLCompletion(r URLRequest) (URLCompletion, error) {
-	var (
-		completions URLCompletion
-	)
-	resp, err := http.Post(urlEndpoint, "application/json", bytes.NewBuffer([]byte(r.Prompt)))
-	if err != nil {
-		log.Println("Error:", err)
-		return completions, err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println("Error:", err)
-		return completions, err
-	}
-	err = json.Unmarshal(body, &completions)
-	if err != nil {
-		log.Println("Error:", err)
-		return completions, err
-	}
-	return completions, nil
 }
 
 // requestCompletion takes a file name and an openai API key and organization id
