@@ -10,20 +10,21 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/franciscoescher/goopenai"
+	"github.com/Michael-F-Ellis/goopenai"
 	"github.com/fsnotify/fsnotify"
 )
 
 // TODO #5
 // TODO Add @OUT, @/OUT delimiters
 const USAGE = `
-FICTA v1.2.2
+FICTA v1.3.0
 
 Usage: ficta [options] file1 [file2 ...]
 
@@ -34,7 +35,8 @@ ficta will create it and write some default content to it.
 Options:
    -h Show this help message.
    -b backup extension: the extension for backup files. If -b is not specified,
-   ficta will not create backup files when a file is updated.
+      ficta will not create backup files when a file is updated.
+   -u URL endpoint: the URL endpoint for non OpenAI completion requests.
    -c line comment prefix: the prefix string for comment lines. Default is '//'.
    -y block comment prefix, default = '/*'
    -z block comment suffix, default = '*/'
@@ -63,10 +65,12 @@ var (
 	lineCommentPrefix  string
 	blockCommentPrefix string
 	blockCommentSuffix string
+	urlEndpoint        string
 )
 
 func main() {
 	flag.StringVar(&backupExt, "b", "", "the extension for backup files")
+	flag.StringVar(&urlEndpoint, "u", "", "optional URL endpoint for non OpenAI completion requests")
 	flag.StringVar(&lineCommentPrefix, "c", "//", "the prefix string for comment lines")
 	flag.StringVar(&blockCommentPrefix, "y", "/*", "the prefix string for multi-line comments")
 	flag.StringVar(&blockCommentSuffix, "z", "*/", "the suffix string for multi-line comments")
@@ -229,6 +233,42 @@ func checkFileArgs(filenames []string) ([]string, []error) {
 	return goodfiles, errors
 }
 
+type URLRequest struct {
+	Prompt      string  `json:"prompt"`
+	Temperature float64 `json:"temperature"`
+	NPredict    int     `json:"n_predict"`
+	CachePrompt bool    `json:"cache_prompt"`
+}
+type URLCompletion struct {
+	Content            []string `json:"content"`
+	GenerationSettings struct {
+		Temp string `json:"temp"`
+	} `json:"generation_settings"`
+}
+
+func requestURLCompletion(r URLRequest) (URLCompletion, error) {
+	var (
+		completions URLCompletion
+	)
+	resp, err := http.Post(urlEndpoint, "application/json", bytes.NewBuffer([]byte(r.Prompt)))
+	if err != nil {
+		log.Println("Error:", err)
+		return completions, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("Error:", err)
+		return completions, err
+	}
+	err = json.Unmarshal(body, &completions)
+	if err != nil {
+		log.Println("Error:", err)
+		return completions, err
+	}
+	return completions, nil
+}
+
 // requestCompletion takes a file name and an openai API key and organization id
 // and sends the file's content to the OpenAI completion endpoint.  It returns
 // the response from the OpenAI completion endpoint and an error if one
@@ -244,7 +284,7 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 	}
 	textstr, aiLine := findLastAILine(string(text))
 	cleanText := processAuthorComments(textstr, lineCommentPrefix, blockCommentPrefix, blockCommentSuffix)
-	model, max_tokens, temperature, cnt, err := parseAILine(aiLine)
+	model, req_tokens, temperature, cnt, err := parseAILine(aiLine)
 	if err != nil {
 		log.Printf("Using default model parameters: Error: %v", err)
 	}
@@ -254,7 +294,14 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 		log.Println("Error:", err)
 		return
 	}
-	r := goopenai.CreateCompletionsRequest{
+	// If the model name is "url", call the URL endpoint given when the program
+	// started. Otherwise call the OpenAI API completion endpoint.
+	url := ""
+	if model == "url" {
+		url = urlEndpoint
+	}
+	maxtok := req_tokens // need to copy req_tokens because models take a pointer to it.
+	r := goopenai.CreateChatCompletionsRequest{
 		Messages: []goopenai.Message{
 			{
 				Role:    "user",
@@ -263,12 +310,12 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 		},
 		Model:       model,
 		Temperature: 2 * temperature, // OpenAI API temperature range is 0.0 to 2.0
-		MaxTokens:   max_tokens,
-		N:           cnt,
+		MaxTokens:   &maxtok,
+		N:           &cnt,
 	}
 
 	ctx := context.Background()
-	completions, err := client.CreateCompletions(ctx, r)
+	completions, err := client.CreateChatCompletions(ctx, &r, url)
 	if err != nil {
 		return "", err
 	}
@@ -306,10 +353,10 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 	// Create and append model, token limit and temperature as the final line of the response.
 	// Remember that temp needs to be scaled down by a factor of 2.
 	mdl := r.Model
-	maxt := r.MaxTokens
+	// maxt := r.MaxTokens
 	temp := r.Temperature
-	cnt = r.N
-	ai := fmt.Sprintf("\n\nAI: %s, %d, %0.3f, %d", mdl, maxt, temp/2, cnt)
+	cnt = *r.N
+	ai := fmt.Sprintf("\n\nAI: %s, %d, %0.3f, %d", mdl, req_tokens, temp/2, cnt)
 	var responses []string
 	nChoices := len(completions.Choices)
 	switch {
@@ -324,7 +371,7 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 			responses = append(responses, s.Message.Content)
 		}
 	default:
-		responses = append(responses, completions.Error.Message)
+		responses = append(responses, "bad choice count")
 	}
 	// catenate the prompt, the response and the AI string. For reasons that
 	// aren't yet clear, the responses sometimes contain escape sequences for
