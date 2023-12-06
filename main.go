@@ -65,6 +65,7 @@ var (
 	blockCommentPrefix string
 	blockCommentSuffix string
 	urlEndpoint        string
+	showJsonReq        bool // when true, ficta will print the json generated for each request.
 )
 
 func main() {
@@ -73,6 +74,7 @@ func main() {
 	flag.StringVar(&lineCommentPrefix, "c", "//", "the prefix string for comment lines")
 	flag.StringVar(&blockCommentPrefix, "y", "/*", "the prefix string for multi-line comments")
 	flag.StringVar(&blockCommentSuffix, "z", "*/", "the suffix string for multi-line comments")
+	flag.BoolVar(&showJsonReq, "j", false, "When true, ficta will print the json sent with each request")
 	flag.Usage = func() { fmt.Println(USAGE) }
 	flag.Parse()
 
@@ -260,9 +262,6 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 	// If the model name is "url", call the URL endpoint given when the program
 	// started. Otherwise call the OpenAI API completion endpoint.
 	url := ""
-	if model == "url" {
-		url = urlEndpoint
-	}
 	maxtok := req_tokens // need to copy req_tokens because models take a pointer to it.
 	r := goopenai.CreateChatCompletionsRequest{
 		Messages: []goopenai.Message{
@@ -276,9 +275,31 @@ func requestCompletion(filename, apiKey, org string) (response string, err error
 		MaxTokens:   &maxtok,
 		N:           &cnt,
 	}
+	// Extra information needed for url endpoints
+	cache_prompt := false
+	slot_id := 0
+	/*
+		    llcp := goopenai.LlamaCppParams{
+			CachePrompt: &cache_prompt,
+			SlotId:      &slot_id,
+		} */
+	if model == "url" {
+		url = urlEndpoint
+		cache_prompt = true
+		r.CachePrompt = &cache_prompt
+		r.SlotId = &slot_id
+	}
 
 	ctx := context.Background()
 	completions, err := client.CreateChatCompletions(ctx, &r, url)
+	if showJsonReq {
+		jsn, err := json.Marshal(r)
+		if err != nil {
+			log.Print(err)
+		} else {
+			log.Print(string(jsn))
+		}
+	}
 	if err != nil {
 		return "", err
 	}

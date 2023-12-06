@@ -1,4 +1,5 @@
 # ficta
+**NEW:** `ficta` now supports using local LLM server endpoints that mimic the OpenAI API `v1/chat/completions` endpoint, e.g. `llama.cpp server`
 
 `ficta` is a command line program that lets you use OpenAI's completion API from any text editor.
 
@@ -19,7 +20,7 @@ Then clone this repo and build `ficta` with
 go build
 ```
 
-Copy the `ficta` binary somewhere in your `$PATH`, and you're ready to run. But see [the API Key section](#api-key-and-organization-id) to learn about two environment variables `ficta` needs to authenticate with OpenAI.
+Copy the `ficta` binary somewhere in your `$PATH`, (or run `go install`) and you're ready to run. But see [the API Key section](#api-key-and-organization-id) to learn about two environment variables `ficta` needs to authenticate with OpenAI.
 
 ## Usage
 
@@ -67,8 +68,10 @@ When `ficta` creates a new text file for you, it initializes it with the followi
 ----
 The default content has three lines of text:
  1. A brief ***prompt*** that tells the AI we're writing a story. You can do without this sometimes if you start with enough of the story, but adding the initial prompt is more reliable. You can also add instructions to the prompt to influence the LLM's writing style. For instance, I often add something like *"Prefer dialog to narrative. Use sights, sounds, sensations, gestures, facial expressions and involuntary actions to convey emotions."*
+
  2. The ***text*** of the story so far. In this case, a single opening sentence.
- 3. The ***"AI:"*** line that tells `ficta` which LLM model to use, the maximum number of 'tokens' to generate, and the 'temperature'.
+ 
+ 3. The ***"AI:"*** line that tells `ficta` which LLM model to use, the maximum number of 'tokens' to generate, and the 'temperature'. You can specify any valid OpenAI model, e.g. `gpt-4` or you can specify `url` to tell `ficta` to use an alternate endpoint. You must specify the alternate endpoint with the -u parameter when you launch ficta for this to work.
   
    A `token` is a short sequence of characters. Typically, 100 tokens is about 75 words. `Temperature` is a parameter that governs the extent to which the LLM will randomly deviate from the next most likely word as it generates text. Temperature must be in the range 0.0 to 1.0. with 0 meaning little or no deviation and 1.0 meaning the AI will be more "creative"
 
@@ -153,9 +156,5 @@ To stop monitoring files, kill `ficta` from the terminal window where you launch
 2023/05/09 17:45:58 response received: 6.401 elapsed
 ```
 
-## Performance
-As of this writing, May 10, 2023, performance is gated by the OpenAI endpoint response time. For gpt-3.5-turbo, the response time is more or less linear with the value of max_tokens and only slightly influenced by the number of tokens in the input. With a paid API account, I'm seeing 5-7 seconds per response for max_tokens=100, 10-14 seconds for max_tokens=200, and so on. This is notably slower than the response time for a similar query on the ChatGPT web interface and has been a subject of complaint among API users in the community forum. Hopefully, OpenAI will eventually bring the API response time to parity with the web interface.
-
-In the meantime, I recommend setting max_tokens to 100. FWIW, I find that working in smaller chunks allows for easier control of the composition.
 ## Acknowledgments
 `ficta` uses Francisco Escher's excellent [goopenai](github.com/franciscoescher/goopenai) package to interface with the OpenAI API.
