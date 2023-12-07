@@ -23,25 +23,26 @@ import (
 // TODO #5
 // TODO Add @OUT, @/OUT delimiters
 const USAGE = `
-FICTA v1.3.0
+FICTA v1.3.2
 
 Usage: ficta [options] file1 [file2 ...]
 
-ficta monitors one or more files for changes and calls the OpenAI completion
+ficta monitors one or more files for changes and sends a request to a completion
 endpoint with the text of the file. If you pass a filename that doesn't exist,
 ficta will create it and write some default content to it.
 
 Options:
    -h Show this help message.
+   -j Print each json request sent to the completion endpoint. Useful for debugging.
    -b backup extension: the extension for backup files. If -b is not specified,
       ficta will not create backup files when a file is updated.
-   -u URL endpoint: the URL endpoint for non OpenAI completion requests.
+   -u URL endpoint: the URL for non-OpenAI completion requests.
    -c line comment prefix: the prefix string for comment lines. Default is '//'.
    -y block comment prefix, default = '/*'
    -z block comment suffix, default = '*/'
    Commented lines are excluded from text sent to the OpenAI completion endpoint.
 
-When you save a changed file, ficta will call the OpenAI completion endpoint and
+When you save a changed file, ficta will call the completion endpoint and
 overwrites the file with the original text followed by the completion response,
 followed by a one line record containing the model name, max_tokens and
 'temperature' and N (number of completions requested). 
@@ -57,7 +58,24 @@ temperature, and N.
 
 You need a valid OpenAI API key and Organization ID to use ficta.  Ficta
 expects to find them in environment variables named OPENAI_API_KEY and 
-OPENAI_API_ORG.`
+OPENAI_API_ORG.
+
+Ficta also supports non-OpenAI completion endpoints that mimic the OpenAI
+v1/chat/completions endpoint.  To use a non-OpenAI completion endpoint, launch
+ficta and specify the endpoint's URL with the -u option. For example,
+
+   ficta -u http://192.168.1.17:8080/v1/chat/completions ...
+
+Then, in your documents, use the model name "url" to indicate that the next
+request should be send to the URL endpoint.  For example,
+
+   AI: url, 100, 0.700, 1
+
+The URL endpoint must accept a POST request with a JSON body that matches the
+OpenAI v1/chat/completions format.
+
+You may freely edit the AI: line in your documents to switch between OpenAI
+models and the URL endpoints.`
 
 var (
 	backupExt          string

@@ -29,17 +29,52 @@ To use `ficta`, simply run the command followed by the names of the files you wi
 ```bash
 ficta [options] file1.txt file2.txt ... fileN.txt
 ```
-Valid options are:
+Help is available with `ficta -h`, which produces the following output:
+
 ```
+FICTA v1.3.2
+
+Usage: ficta [options] file1 [file2 ...]
+
+ficta monitors one or more files for changes and sends a request to a completion endpoint with the text of the file. If you pass a filename that doesn't exist, ficta will create it and write some default content to it.
+
+Options:
    -h Show this help message.
-   -b backupExtension: the extension for backup files. If -b is not specified, ficta will not create backup files when a file is updated.
-   -c line comment prefix, default = //
-   -y block comment prefix, default = /*
-   -z block comment suffix, default = */
+   -j Print each json request sent to the completion endpoint. Useful for debugging.
+   -b backup extension: the extension for backup files. If -b is not specified, ficta will not create backup files when a file is updated.
+   -u URL endpoint: the URL for non-OpenAI completion requests.
+   -c line comment prefix: the prefix string for comment lines. Default is '//'.
+   -y block comment prefix, default = '/*'
+   -z block comment suffix, default = '*/'
+   Commented lines are excluded from text sent to the completion endpoint.
+
+When you save a changed file, ficta will call the completion endpoint and overwrite the file with the original text followed by the completion response, followed by a one line record containing the model name, max_tokens and 'temperature' and N (number of completions requested). 
+
+A typical model record looks like the following:
+
+AI: gpt-3.5-turbo, 100, 0.700, 1
+
+You may edit the model record with any valid values for model name, max tokens, temperature, and N; those values will be used for the next completion request.  See the openai.com API documentation to learn more about models, max tokens and temperature, and N.
+
+You need a valid OpenAI API key and Organization ID to use ficta.  Ficta expects to find them in environment variables named OPENAI_API_KEY and OPENAI_API_ORG.
+
+Ficta also supports non-OpenAI completion endpoints that mimic the OpenAI v1/chat/completions endpoint.  
+
+To use a non-OpenAI completion endpoint, launch ficta and specify the endpoint's URL with the -u option. For example,
+
+   ficta -u http://192.168.1.17:8080/v1/chat/completions ...
+
+Then, in your documents, use the model name "url" to indicate that the next request should be send to the URL endpoint.  For example,
+
+   AI: url, 100, 0.700, 1
+
+The URL endpoint must accept a POST request with a JSON body that matches the OpenAI v1/chat/completions format.
+
+You may freely edit the AI: line in your documents to switch between OpenAI models and the URL endpoints.
 ```
 If you supply a filename that doesn't exist, `ficta` will create it and initialize it with some default content.
 
-Once you have started monitoring a file, any changes you make to it will trigger a call to the OpenAI `v1/chat/completion` endpoint. The original text of the file will be sent to the endpoint, along with any settings you have specified (such as model name, max tokens, and temperature). 
+Once you have started monitoring a file, any changes you make to it will trigger a call to the completion endpoint and model specified in your AI: line. The original text of the file will be sent to the endpoint, along with any settings you have specified (such as model name, max tokens, and temperature). 
 
 The completion response will be appended to the original text, and the resulting text will be saved back to the file. A record of the model name, max tokens, temperature and number of completions settings used for the completion request will also be included in the file. You can edit the model record to adjust the settings to your needs on subsequent completion requests.
 
@@ -48,10 +83,10 @@ You may want to exclude some lines of the text from the AI input, either as note
 
  `Ficta` supports line and block comments. By default, the comment delimiters are the familiar `//`, `/*`, and `*/` used in C++, Go, and similar programming languages, but you can change them with command line options when you start `ficta`.
 
- The default delimiters have the advantage of making it easier to adapt existing syntax hightlighting rules to help you distinguish comments from input text. The `ficta` repository includes a `vscode` extension named `AIT` that detects and highlights comments. You'll need to manually copy the folder to your vscode extensions directory and use the file extension `.ait` on your input files.
+ The default delimiters have the advantage of making it easier to adapt existing syntax hightlighting rules to help you distinguish comments from input text. The `ficta` repository includes a `vscode` extension named `AIT` that detects and highlights comments. You'll need to manually copy the folder to your vscode extensions directory and use the file extension `.ait` on your input files to take advantage of the extension.
 ## API Key and Organization ID
 
-To use `ficta`, you will need a valid OpenAI API key and Organization ID. These should be stored in environment variables named `OPENAI_API_KEY` and `OPENAI_API_ORG`, respectively.
+To use `ficta` with the OpenAI API, you will need a valid OpenAI API key and Organization ID. These should be stored in environment variables named `OPENAI_API_KEY` and `OPENAI_API_ORG`, respectively. These keys are not needed if you are using a non-OpenAI server.
 
 If you do not have an OpenAI API key, you can sign up for one on the OpenAI website.
 
